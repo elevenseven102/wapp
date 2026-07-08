@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCANVAULT</title>
+    <meta name="theme-color" content="#0b0c0e">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpolygon points='50,5 95,25 95,75 50,95 5,75 5,25' fill='%2300e5a0'/%3E%3C/svg%3E">
+    <style>
+        :root {
+            --bg: #0b0c0e;
+            --surface: #111418;
+            --border: #1e242c;
+            --text: #c8d6e5;
+            --text-dim: #5c6a7a;
+            --accent: #00e5a0;
+            --accent-glow: #00e5a023;
+            --accent2: #00b4d8;
+            --red: #ff4d6a;
+            --yellow: #ffb347;
+            --font: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+            --radius: 2px;
+            --transition-speed: 0.12s;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: var(--font);
+            font-size: 13px;
+            background: var(--bg);
+            color: var(--text);
+            padding: 12px 14px 10px;
+            overflow-y: auto;
+            position: relative;
+            letter-spacing: 0.02em;
+            line-height: 1.6;
+            min-height: 100vh;
+            -webkit-app-region: drag;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 9999;
+            background: repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 0, 0, 0.07) 2px,
+                    rgba(0, 0, 0, 0.07) 4px);
+            opacity: 0.5;
+        }
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 9998;
+            background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.55) 100%);
+        }
+
+        .no-drag { -webkit-app-region: no-drag; }
+
+        .app-title {
+            font-size: 10px;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 2.5px;
+            font-weight: 600;
+            text-shadow: 0 0 12px var(--accent-glow), 0 0 30px var(--accent-glow);
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            margin-bottom: 12px;
+        }
+        .app-title::before {
+            content: '⬡';
+            font-size: 13px;
+            animation: spinSlow 8s linear infinite;
+            display: inline-block;
+            filter: drop-shadow(0 0 6px var(--accent));
+        }
+        @keyframes spinSlow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .status-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent), 0 0 18px var(--accent-glow);
+            animation: dotBlink 2s step-end infinite;
+            display: inline-block;
+            margin-left: 4px;
+        }
+        @keyframes dotBlink {
+            0%,100% { opacity: 1; }
+            50% { opacity: 0.2; }
+        }
+
+        .btn {
+            -webkit-app-region: no-drag;
+            padding: 6px 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-family: inherit;
+            font-size: 11px;
+            cursor: pointer;
+            background: var(--surface);
+            color: var(--text-dim);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            transition: all var(--transition-speed) ease;
+            outline: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn:hover {
+            border-color: var(--accent2);
+            color: #a0b8d0;
+            box-shadow: 0 0 10px rgba(0, 180, 216, 0.2);
+        }
+        .btn.accent {
+            border-color: var(--accent);
+            color: var(--accent);
+            text-shadow: 0 0 8px var(--accent-glow);
+            box-shadow: 0 0 16px var(--accent-glow), inset 0 0 8px rgba(0, 229, 160, 0.06);
+        }
+        .btn.accent:hover {
+            box-shadow: 0 0 22px var(--accent-glow), 0 0 35px rgba(0, 229, 160, 0.3);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .view {
+            position: relative;
+            z-index: 1;
+            display: none;
+        }
+        .view.active { display: block; }
+
+        .doc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .doc-card {
+            -webkit-app-region: no-drag;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            position: relative;
+            overflow: hidden;
+            user-select: none;
+        }
+        .doc-card:hover {
+            border-color: var(--accent2);
+            box-shadow: 0 0 10px rgba(0, 180, 216, 0.2);
+        }
+        .doc-card.selected {
+            border-color: var(--accent);
+            box-shadow: 0 0 18px var(--accent-glow), inset 0 0 8px rgba(0, 229, 160, 0.08);
+            background: #0c1a16;
+        }
+        .doc-card-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: var(--text);
+            margin-bottom: 6px;
+            word-break: break-word;
+        }
+        .doc-card-meta {
+            font-size: 10px;
+            color: var(--text-dim);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .multi-select-bar {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            background: #0a1512;
+            border: 1px solid var(--accent);
+            border-radius: var(--radius);
+            padding: 8px 12px;
+            margin: 8px 0;
+            box-shadow: 0 0 18px var(--accent-glow);
+        }
+        .multi-select-bar.active { display: flex; }
+        .multi-select-count {
+            font-size: 11px;
+            color: var(--accent);
+            text-shadow: 0 0 8px var(--accent-glow);
+        }
+
+        .album-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .back-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: var(--radius);
+            font-family: inherit;
+            font-size: 16px;
+            line-height: 1;
+            transition: all 0.15s;
+        }
+        .back-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+        .album-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--accent);
+            text-shadow: 0 0 8px var(--accent-glow);
+        }
+
+        .page-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin: 10px 0 14px;
+        }
+        .page-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            -webkit-app-region: no-drag;
+        }
+        .page-checkbox {
+            accent-color: var(--accent);
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+        .page-name {
+            flex: 1;
+            font-size: 12px;
+            color: var(--text);
+        }
+        .page-download-single {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 2px 8px;
+            font-family: inherit;
+            font-size: 10px;
+            cursor: pointer;
+            border-radius: var(--radius);
+            transition: all 0.12s;
+        }
+        .page-download-single:hover {
+            border-color: var(--accent2);
+            color: var(--accent2);
+            box-shadow: 0 0 6px rgba(0,180,216,0.3);
+        }
+
+        .status-text {
+            margin: 8px 0;
+            font-size: 11px;
+            color: var(--text-dim);
+            position: relative;
+            z-index: 1;
+        }
+        .status-text.error { color: var(--red); }
+
+        .progress {
+            width: 100%;
+            background: var(--border);
+            border-radius: var(--radius);
+            margin-top: 8px;
+            height: 6px;
+            overflow: hidden;
+            position: relative;
+            z-index: 1;
+            display: none;
+        }
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent-glow);
+            transition: width 0.3s;
+        }
+
+        ::selection { background: rgba(0, 229, 160, 0.3); color: #fff; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #2a3540; }
+    </style>
+</head>
+<body>
+    <div class="app-title no-drag">SCANVAULT<span class="status-dot"></span></div>
+
+    <div id="listView" class="view active">
+        <button id="refreshBtn" class="btn accent" style="margin-bottom:8px;">⟳ ЗАГРУЗИТЬ СКАНЫ</button>
+        <button id="toggleSelectModeBtn" class="btn" title="Режим выделения (мышь)">🖱️ ВЫДЕЛЕНИЕ</button>
+        <div id="multiSelectBar" class="multi-select-bar no-drag">
+            <span class="multi-select-count" id="multiSelectCount">Выбрано: 0</span>
+            <div style="display:flex; gap:8px;">
+                <button id="pdfSelectedAlbumsBtn" class="btn accent" disabled>📄 PDF ВЫБРАННЫЕ</button>
+                <button id="cancelSelectBtn" class="btn">✕ ОТМЕНА</button>
+            </div>
+        </div>
+        <div id="docGrid" class="doc-grid no-drag"></div>
+        <div id="listStatus" class="status-text"></div>
+        <div class="progress" id="listProgressContainer">
+            <div class="progress-bar" id="listProgressBar"></div>
+        </div>
+    </div>
+
+    <div id="albumView" class="view">
+        <div class="album-header no-drag">
+            <button id="backBtn" class="back-btn">←</button>
+            <span id="albumTitle" class="album-title"></span>
+        </div>
+        <div id="pageList" class="page-list no-drag"></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin:10px 0;">
+            <button id="pdfAlbumBtn" class="btn accent">📄 PDF АЛЬБОМ</button>
+            <button id="jpgSelectedBtn" class="btn" disabled>📥 JPG ВЫБРАННЫЕ</button>
+        </div>
+        <div id="albumStatus" class="status-text"></div>
+        <div class="progress" id="albumProgressContainer">
+            <div class="progress-bar" id="albumProgressBar"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
